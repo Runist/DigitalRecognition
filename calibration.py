@@ -25,8 +25,8 @@ class Digital(object):
         """
         self.src = pic
 
-        self.point1 = 0
-        self.point2 = 0
+        self.point1 = (0, 0)
+        self.point2 = (self.src.shape[0], self.src.shape[1])
 
         self.roi_x = 0
         self.roi_y = 0
@@ -112,11 +112,12 @@ class Digital(object):
             self.roi_height = abs(self.point1[1] - self.point2[1])
 
             self.roi_img = img1[self.roi_y: self.roi_y + self.roi_height, self.roi_x: self.roi_x + self.roi_width]
-            print("所要识别的区域起始坐标为:%d %d," % self.point1, end='')
-            print("结束坐标为:%d %d" % self.point2)
+
             self.roi_x, self.roi_y = self.point1
             self.roi_width, self.roi_height = self.point2[0] - self.point1[0], self.point2[1] - self.point1[1]
             cv.imshow('cut_img', self.roi_img)
+
+
 
     def binary_pic(self):
         """
@@ -211,6 +212,8 @@ class Digital(object):
 
         cv.imshow("out", self.bgr_img)
 
+        print("roi_x: %d, roi_y: %d," % (self.roi_x, self.roi_y), end='')
+        print("roi_width: %d, roi_height: %d" % (self.roi_width, self.roi_height))
         print('数码管之间距离为：%d' % self.digital_distance)
         if self.radix_x or self.radix_y:
             # 验证小数点位置
@@ -330,11 +333,11 @@ class Digital(object):
 
 if __name__ == "__main__":
 
-    img = cv.imread("./picture/test6.png")
+    img = cv.imread("./picture/pic27.jpg")
     cv.namedWindow("image", cv.WINDOW_AUTOSIZE)
     cv.imshow("image", img)
 
-    dc = Digital(img, decimal_point=None, inv=True)
+    dc = Digital(img, decimal_point=2, inv=False)
 
     # 实现正常退出
     cv.waitKey(0)

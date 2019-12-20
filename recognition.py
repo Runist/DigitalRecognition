@@ -247,12 +247,12 @@ class DigitalRecognition(object):
 
 if __name__ == "__main__":
 
-    img = cv.imread("./picture//test6.png")
+    img = cv.imread("./picture/pic27.jpg")
     cv.namedWindow("image", cv.WINDOW_AUTOSIZE)
     cv.imshow("image", img)
 
-    dr = DigitalRecognition(img, roi_x=437, roi_y=521, roi_w=63, roi_h=42, angle=12.89, start_pos=(8, 5), radix_pos=(0, 0),
-                            digital_width=25, digital_height=34, segment_width=18, segment_height=0, distance=29, inv=True)
+    dr = DigitalRecognition(img, roi_x=0, roi_y=0, roi_w=488, roi_h=186, angle=10.64, start_pos=(5, 19), radix_pos=(61, 93),
+                            digital_width=107, digital_height=148, segment_width=80, segment_height=0, distance=124, inv=False)
     # 先二值化图片
     dr.binary_pic()
     # 进行形态学操作（膨胀）
