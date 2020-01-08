@@ -13,7 +13,7 @@ import json
 
 
 class Digital(object):
-    def __init__(self, pic, decimal_point=None, thresh=None, inv=False, ver_kernel=(3, 1), hor_kernel=(1, 8)):
+    def __init__(self, pic, decimal_point=None, thresh=None, inv=False, ver_kernel=(3, 1), hor_kernel=(1, 4)):
         """
         类定义初始化
         :param pic: 输入图像
@@ -117,15 +117,14 @@ class Digital(object):
             self.roi_width, self.roi_height = self.point2[0] - self.point1[0], self.point2[1] - self.point1[1]
             cv.imshow('cut_img', self.roi_img)
 
-
-
     def binary_pic(self):
         """
         图像二值化
         :return: None
         """
+        blur = cv.GaussianBlur(self.roi_img, (5, 5), 0)
         # 图片采用全局二值化， OTSU算法自动计算最佳阈值
-        gray = cv.cvtColor(self.roi_img, cv.COLOR_BGR2GRAY)
+        gray = cv.cvtColor(blur, cv.COLOR_BGR2GRAY)
 
         if self.inv_flag:
             method = cv.THRESH_BINARY_INV
@@ -150,6 +149,8 @@ class Digital(object):
         vertical_kernel = cv.getStructuringElement(cv.MORPH_RECT, self.ver_kernel)
         # 竖直方向的膨胀要大一点，比如1 和 7 中间藕断丝连的地方需要大一点
         horizontal_kernel = cv.getStructuringElement(cv.MORPH_RECT, self.hor_kernel)
+        # 圆形的核，可能调参数可能用得到
+        # ellipse_kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (2, 2))
 
         ver_img = cv.dilate(self.binary, vertical_kernel, iterations=iters)
         hor_img = cv.dilate(ver_img, horizontal_kernel, iterations=iters)
@@ -157,7 +158,7 @@ class Digital(object):
         self.morphology = hor_img
 
         self.pure = self.morphology
-        cv.imshow("morphology_img", hor_img)
+        cv.imshow("morphology_img", self.morphology)
 
     def calibration(self):
         """
@@ -170,8 +171,13 @@ class Digital(object):
 
         for cnt in self.cnts:
             x, y, w, h = cv.boundingRect(cnt)
-            cv.rectangle(self.bgr_img, (x, y), (x + w, y + h), (0, 0, 255), 2)
+            cv.rectangle(self.bgr_img, (x, y), (x + w, y + h), (255, 0, 0), 2)
             self.location.append([x, y, w, h])
+
+            # 最小外接矩形框，有方向角
+            rect = cv.minAreaRect(cnt)
+            box = np.int0(cv.boxPoints(rect))
+            cv.drawContours(self.bgr_img, [box], 0, (0, 0, 255), 2)
 
         # 轮廓信息（可能小数点是一个框，数字是一个框）
         self.location = sorted(self.location, key=(lambda x: x[0]))
@@ -208,25 +214,24 @@ class Digital(object):
                 (self.start_x + self.segment_height + offset, self.start_y + self.segment_height), (0, 255, 0), 2)
 
         # 验证第一个数码管起始坐标
-        cv.circle(self.bgr_img, (self.start_x, self.start_y), 2, (0, 255, 0), -1)
+        cv.circle(self.bgr_img, (self.start_x, self.start_y), 2, (120, 255, 0), -1)
 
         cv.imshow("out", self.bgr_img)
 
-        print("roi_x: %d, roi_y: %d," % (self.roi_x, self.roi_y), end='')
-        print("roi_width: %d, roi_height: %d" % (self.roi_width, self.roi_height))
-        print('数码管之间距离为：%d' % self.digital_distance)
+        print(" roi_x: %d\n roi_y: %d" % (self.roi_x, self.roi_y))
+        print(" roi_width: %d\n roi_height: %d" % (self.roi_width, self.roi_height))
+        print(' digital_distance：%d' % self.digital_distance)
+        print(' digital_width：%d \n digital_height: %d' % (self.digital_width, self.digital_height))
+        print(' angle: %.2f' % self.angle)
+        print(' start_pos：(%d, %d)' % (self.start_x, self.start_y))
+        print(' segment_width：%d' % self.segment_width)
+        print(' inv：%s' % self.inv_flag)
         if self.radix_x or self.radix_y:
             # 验证小数点位置
             cv.circle(self.bgr_img, (self.radix_x, self.radix_y), 2, (0, 255, 0), -1)
-            print('数码管第一个小数点的位置:(%d, %d)' % (self.radix_x, self.radix_y))
+            print(' radix_pos: (%d, %d)' % (self.radix_x, self.radix_y))
         else:
-            print('数码管没有亮起小数点')
-
-        print('单个数码管的长度与高度：%d, %d' % (self.digital_width, self.digital_height))
-        print('数码管的旋转角度为%.2f' % self.angle)
-        print('数码管起始坐标为：(%d, %d)' % (self.start_x, self.start_y))
-        print('单个数码管的段选长度：%d' % self.segment_width)
-        print('二值化反转flag：%s' % self.inv_flag)
+            print(' radix_pos: (0, 0)')
 
     def get_standard_digital(self):
         """
@@ -243,6 +248,15 @@ class Digital(object):
         loc = sorted(loc, key=lambda x: x[1], reverse=True)
         self.standard1 = loc[0][0]
         self.standard2 = loc[1][0]
+
+        while (self.standard1 < len(loc) - 2) and (self.standard2 < len(loc) - 2):
+            if cv.minAreaRect(self.cnts[self.standard1])[2] == -0.0:
+                self.standard1 += 2
+            elif cv.minAreaRect(self.cnts[self.standard2])[2] == -0.0:
+                self.standard2 += 2
+            else:
+                break
+        print(self.standard1, self.standard2)
 
     def get_first_digital_pos(self):
         """
@@ -319,13 +333,17 @@ class Digital(object):
         数码管灭灯状态会影响角度的识别
         :return: None, 作为类属性存储进去
         """
-        angle = [cv.minAreaRect(self.cnts[self.standard1])[2], cv.minAreaRect(self.cnts[self.standard2])[2]]
+        angle = [(90 + cv.minAreaRect(self.cnts[self.standard1])[2]), (90 + cv.minAreaRect(self.cnts[self.standard2])[2])]
+        print(angle)
 
         # 求各个数码管偏转的平均值，然后计算其转换为角度,如果angle列表长度为0,代表返回为全0,python中0=False,None所以angle长度为0
         if len(angle) == 0:
             self.angle = 0.0
         else:
-            self.angle = 90 + (sum(angle) / len(angle))
+            if 90.0 in angle:
+                self.angle = min(angle)
+            else:
+                self.angle = sum(angle) / len(angle)
 
         # 转换为tan函数需要的弧度制
         self.radian = math.pi/180 * self.angle
@@ -333,18 +351,17 @@ class Digital(object):
 
 if __name__ == "__main__":
 
-    img = cv.imread("./picture/pic27.jpg")
+    img = cv.imread("./picture/pic32.jpg")
     cv.namedWindow("image", cv.WINDOW_AUTOSIZE)
     cv.imshow("image", img)
 
-    dc = Digital(img, decimal_point=2, inv=False)
+    dc = Digital(img, decimal_point=None, inv=True)
 
     # 实现正常退出
     cv.waitKey(0)
     dc.binary_pic()
-    # dc.morphologyEx()
+    dc.morphologyEx()
     dc.calibration()
-    # dc.generate_json()
 
     cv.waitKey(0)
     cv.destroyAllWindows()

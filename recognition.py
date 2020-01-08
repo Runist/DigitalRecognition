@@ -12,12 +12,14 @@ import numpy as np
 
 
 class DigitalRecognition(object):
-    def __init__(self, pic, roi_x, roi_y, roi_w, roi_h, angle=0.0, segment_width=0, segment_height=0,
-                 digital_width=0, digital_height=0, distance=0,
+    def __init__(self, pic, n, roi_x, roi_y, roi_w, roi_h, angle=0.0, segment_width=0, segment_height=0,
+                 digital_width=0, digital_height=0, digital_distance=0,
                  start_pos=(0, 0), radix_pos=(0, 0), thresh=None, inv=False):
 
         self.src = pic
 
+        # 数码管的数量
+        self.num = n
         self.roi_x = roi_x
         self.roi_y = roi_y
         self.roi_width = roi_w
@@ -30,9 +32,9 @@ class DigitalRecognition(object):
         # 数码管 段选宽度（长的）
         self.segment_width = segment_width
         # 两个数码管之间的间隔（G段中心点的距离）
-        self.digital_distance = distance
+        self.digital_distance = digital_distance
         # 段选阈值，如果小于这个数，则认为该段亮起来了，范围（0-25500）
-        self.values = 2000
+        self.values = 100
         # 单个数码管的长 和 宽，用户可以自己输入，也可以启用标定函数，但是标定的数码管必须为8，2
         self.digital_width, self.digital_height = digital_width, digital_height
         # 识别的起始坐标,元组拆包
@@ -102,9 +104,8 @@ class DigitalRecognition(object):
         :return: None
         """
         image = cv.cvtColor(self.pure, cv.COLOR_GRAY2BGR)
-        n = self.roi_width // self.digital_width
 
-        for i in range(n):
+        for i in range(self.num):
             # (x1, y1)为左上角的坐标 (x2, y2)为右下角的坐标
             x1 = self.start_x + i * self.digital_distance
             y1 = self.start_y
@@ -166,6 +167,7 @@ class DigitalRecognition(object):
             if self.radix_x == 0 and self.radix_y == 0:
                 radix_status = False
             else:
+                cv.circle(image, h_period, 3, (255, 100, 100), 1)
                 radix_status = self.check(h_period)
 
             # 计算识别的结果
@@ -180,7 +182,7 @@ class DigitalRecognition(object):
             cv.circle(image, e_period, 3, (255, 100, 100), 1)
             cv.circle(image, f_period, 3, (255, 100, 100), 1)
             cv.circle(image, g_period, 3, (255, 100, 100), 1)
-            cv.circle(image, h_period, 3, (255, 100, 100), 1)
+
             cv.imshow("point", image)
 
     def check(self, point):
@@ -189,12 +191,12 @@ class DigitalRecognition(object):
         :param point: 段选位置信息
         :return: True or False
         """
-        x1 = point[0] - 5
-        x2 = point[0] + 5
-        y1 = point[1] - 5
-        y2 = point[1] + 5
+        x1 = point[0] - 2
+        x2 = point[0] + 2
+        y1 = point[1] - 2
+        y2 = point[1] + 2
 
-        # 对100个像素点进行求和
+        # 对16个像素点进行求和
         result = np.sum(self.pure[y1: y2, x1: x2], axis=(0, 1))
         if result > self.values:
             return True
@@ -229,6 +231,8 @@ class DigitalRecognition(object):
             return 8
         elif digital_state == [True, True, True, True, False, True, True]:
             return 9
+        elif digital_state == [False, False, False, False, False, False, True]:
+            return '-'
         else:
             return '未匹配到数字'
 
@@ -242,17 +246,18 @@ class DigitalRecognition(object):
         if radix_state:
             return '.'
         else:
-            return ' '
+            return ''
 
 
 if __name__ == "__main__":
 
-    img = cv.imread("./picture/pic27.jpg")
+    img = cv.imread("./picture/pic28.jpg")
     cv.namedWindow("image", cv.WINDOW_AUTOSIZE)
     cv.imshow("image", img)
 
-    dr = DigitalRecognition(img, roi_x=0, roi_y=0, roi_w=488, roi_h=186, angle=10.64, start_pos=(5, 19), radix_pos=(61, 93),
-                            digital_width=107, digital_height=148, segment_width=80, segment_height=0, distance=124, inv=False)
+    dr = DigitalRecognition(img, n=8, roi_x=694, roi_y=386, roi_w=258, roi_h=52, digital_distance=32,
+                            digital_width=26, digital_height=38, angle=9.46, start_pos=(0, 8),
+                            segment_width=20, inv=False, radix_pos=(0, 0), segment_height=3)
     # 先二值化图片
     dr.binary_pic()
     # 进行形态学操作（膨胀）
