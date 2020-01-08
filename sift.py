@@ -10,7 +10,7 @@ import numpy as np
 import cv2 as cv
 
 
-img = cv.imread('pic30.jpg')
+img = cv.imread('./picture/pic30.jpg')
 
 rows, cols = img.shape[:2]
 
